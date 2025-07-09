@@ -30,7 +30,6 @@ def save_to_json(data, projects):
         print(f"Уже есть: {data['name']}")
 
 def parse_project_page(driver, url):
-    """Парсим данные со страницы конкретного проекта"""
     driver.get(url)
 
     try:
@@ -38,31 +37,21 @@ def parse_project_page(driver, url):
             EC.presence_of_element_located((By.TAG_NAME, 'body'))
         )
 
-        name = driver.find_element(By.XPATH, '//h1').text.strip() if driver.find_elements(By.XPATH, '//h1') else "Не найдено"
+        name_els = driver.find_elements(By.XPATH, '//h1')
+        name = name_els[0].text.strip() if name_els else "Не найдено"
 
-        metro_els = driver.find_elements(By.XPATH, '//p[contains(text(), "метро")]')
-        metro = metro_els[0].text.replace("метро", "").strip() if metro_els else None
-
-        description_els = driver.find_elements(By.XPATH, '//p[contains(@class, "sc-iPahhU ceQaiZ")]')
+        description_els = driver.find_elements(By.XPATH, '//p[contains(@class, "sc-iPahhU ceQaiZ")] | //p[contains(@class, "sc-dWTlHi fDHbzI")]')
         description = description_els[0].text.strip() if description_els else None
-
-        print("Найдено description_els:", len(description_els))
-        if description_els:
-            print("Текст первого элемента:", description_els[0].text)
-        else:
-            print("Элементы не найдены")
 
         return {
             "name": name,
             "url": url,
-            "metro": metro,
-            "description": description if description else None,
+            "description": description,
             "timestamp": datetime.now().isoformat()
         }
 
     except Exception as e:
-        print(f"❌ Ошибка при парсинге страницы {url}: {e}")
-        return None
+        return []
 
 def parse_pik_projects():
     options = Options()
@@ -86,7 +75,7 @@ def parse_pik_projects():
         project_cards = []
         for card in cards:
             href = card.get_attribute("href")
-            metro_el = card.find_element(By.XPATH, './/p[contains(@class, "styles__Metro-vea7eb-3 iqDCzF")]')
+            metro_el = card.find_element(By.XPATH, './/p[contains(@class, "styles__Metro")]')
             metro = metro_el.text.strip() if metro_el else None
             project_cards.append({
                 "href": href,
@@ -96,38 +85,19 @@ def parse_pik_projects():
         print(f"Найдено карточек: {len(project_cards)}")
         projects_data = load_json_data()
 
-        for href in project_cards:
-            href = href['href']
+        for item in project_cards:
+            full_url = item['href']
+            metro = item['metro']
 
-            print(f"Переход по ссылке: {href}")
-            driver.get(href)
+            print(f"Переход по ссылке: {full_url}")
+            project_data = parse_project_page(driver, full_url)
 
-            try:
-                WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.TAG_NAME, 'body'))
-                )
-
-                name = driver.find_element(By.XPATH, '//h1').text.strip() if driver.find_elements(By.XPATH, '//h1') else "Не найдено"
-
-                description_els = driver.find_elements(By.XPATH, '//p[contains(@class, "sc-iPahhU ceQaiZ")]')
-                description = description_els[0].text.strip() if description_els else None
-
-                project_data = {
-                    "name": name,
-                    "url": href,
-                    "metro": metro,
-                    "description": description,
-                    "timestamp": datetime.now().isoformat()
-                }
-
-                if project_data['name'] != "Не найдено":
-                    save_to_json(project_data, projects_data)
-                    projects_data = load_json_data()
-                else:
-                    print("Не удалось получить название ЖК")
-
-            except Exception as e:
-                print(f"Ошибка при парсинге страницы {href}: {e}")
+            if project_data and project_data["name"] != "Не найдено":
+                project_data["metro"] = metro
+                save_to_json(project_data, projects_data)
+                projects_data = load_json_data()
+            else:
+                print("Не удалось спарсить данные")
 
             driver.get(main_url)
             WebDriverWait(driver, 10).until(
@@ -139,5 +109,3 @@ def parse_pik_projects():
 
 if __name__ == "__main__":
     parse_pik_projects()
-
-#TODO: metro
