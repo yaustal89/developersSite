@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from datetime import datetime
-from typing import Union, List, Dict
+from typing import Optional, List, Dict
 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -39,7 +39,7 @@ def save_to_json(data: dict, projects: list) -> None:
     else:
         print(f"Already exists: {data['name']}")
 
-def parse_project_page(driver: webdriver.Chrome, url: str) -> Union[dict,list]:
+def parse_project_page(driver: webdriver.Chrome, url: str) -> Optional[Dict]:
     driver.get(url)
 
     try:
@@ -47,13 +47,18 @@ def parse_project_page(driver: webdriver.Chrome, url: str) -> Union[dict,list]:
             EC.presence_of_element_located((By.TAG_NAME, 'body'))
         )
 
-        name_els = driver.find_elements(By.XPATH, '//h1')
-        name = name_els[0].text.strip() if name_els else "Not found"
+        name_el = driver.find_element(
+            By.XPATH, 
+            '//h1'
+            )
+        name = name_el.text.strip() if name_el else "Not found"
 
-        description_els = driver.find_elements(By.XPATH, 
-                                               '//p[contains(@class, "sc-iPahhU ceQaiZ")] | '
-                                               '//p[contains(@class, "sc-dWTlHi fDHbzI")]')
-        description = description_els[0].text.strip() if description_els else None
+        description_el = driver.find_element(
+            By.XPATH, 
+            '//p[contains(@class, "sc-iPahhU") or contains(@class, "sc-hnCoju")]'
+            )
+        description = description_el.text.strip() if description_el else "Not found"
+        
 
         return {
             "name": name,
@@ -70,13 +75,13 @@ def parse_pik_projects() -> None:
         service=Service(ChromeDriverManager().install()), 
         options=get_chrome_options()
         )
-    main_url = "https://www.pik.ru/projects "
+    main_url = "https://www.pik.ru/projects"
     driver.get(main_url)
 
     try:
         WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.XPATH, '//a[contains(@class, "styles__ProjectCard")]'))
-        )
+        )   
 
         cards = driver.find_elements(By.XPATH, '//a[contains(@class, "styles__ProjectCard")]')
 
@@ -102,13 +107,15 @@ def parse_pik_projects() -> None:
             if project_data:
                 project_data["metro"] = metro
                 save_to_json(project_data, projects_data)
-                projects_data = load_json_data(JSON_FILE)
 
     finally:
-        driver.quit()
+        if driver:
+            driver.quit()
 
 def main():
     parse_pik_projects()
 
 if __name__ == "__main__":
     main()
+
+#TODO: deal with dynamic parsing
