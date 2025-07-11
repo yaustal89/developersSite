@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>СПИСОК ЖК от ПИК</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            background: #f9f9f9;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .projects-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;  
+        }
+
+        .project {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        h2 {
+            margin: 0 0 10px 0;
+        }
+
+        a {
+            color: #007BFF;
+            text-decoration: none;
+            margin-top: auto;
+        }
+
+        p {
+            margin: 5px 0;
+        }
+
+        small {
+            margin-top: 10px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Жилые комплексы от ПИК</h1>
+
+{% if projects %}
+    <div class="projects-container">
+        {% for project in projects %}
+            <div class="project">
+                <h2>{{ project.name }}</h2>
+                <p><strong>Метро:</strong> {{ project.metro or "Не указано" }}</p>
+                <p><strong>Описание:</strong> {{ project.description or "Нет описания" }}</p>
+                <p><a href="{{ project.url }}" target="_blank">Перейти на сайт</a></p>
+                <small>Дата: {{ project.timestamp }}</small>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <p>Нет доступных проектов.</p>
+{% endif %}
+
+</body>
+</html>
