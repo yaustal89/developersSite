@@ -14,6 +14,14 @@ from webdriver_manager.chrome import ChromeDriverManager
 PROJECT_DIR = Path(__file__).resolve().parent
 JSON_FILE = PROJECT_DIR / "pik_projects_full.json"
 
+def get_chrome_options() -> Options:
+    options = Options()
+    options.add_argument("--headless=new")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--enable-unsafe-swiftshader")
+    return options
+
 def load_json_data(JSON_FILE: Path) -> List[Dict]:
     try:
         with open(JSON_FILE, 'r', encoding='utf-8') as f:
@@ -23,14 +31,13 @@ def load_json_data(JSON_FILE: Path) -> List[Dict]:
 
 def save_to_json(data: dict, projects: list) -> None:
     existing_names = {item['name'] for item in projects}
-
     if data['name'] not in existing_names:
         projects.append(data)
         with open(JSON_FILE, 'w', encoding='utf-8') as f:
             json.dump(projects, f, ensure_ascii=False, indent=4)
-        print(f"Сохранено в JSON: {data['name']} | Метро: {data.get('metro', '-')}")
+        print(f"Saved: {data['name']} | Метро: {data.get('metro', '-')}")
     else:
-        print(f"Уже есть: {data['name']}")
+        print(f"Already exists: {data['name']}")
 
 def parse_project_page(driver: webdriver.Chrome, url: str) -> Union[dict,list]:
     driver.get(url)
@@ -56,17 +63,13 @@ def parse_project_page(driver: webdriver.Chrome, url: str) -> Union[dict,list]:
         }
 
     except Exception as e:
-        return []
+        return None
 
 def parse_pik_projects() -> None:
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--enable-unsafe-swiftshader")
-
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-
+    driver = webdriver.Chrome(
+        service=Service(ChromeDriverManager().install()), 
+        options=get_chrome_options()
+        )
     main_url = "https://www.pik.ru/projects "
     driver.get(main_url)
 
@@ -80,37 +83,32 @@ def parse_pik_projects() -> None:
         project_cards = []
         for card in cards:
             href = card.get_attribute("href")
-            metro_el = card.find_element(By.XPATH, './/p[contains(@class, "styles__Metro")]')
-            metro = metro_el.text.strip() if metro_el else None
+            metro = card.find_element(By.XPATH, './/p[contains(@class, "styles__Metro")]').text.strip()
             project_cards.append({
                 "href": href,
                 "metro": metro
             })
 
-        print(f"Найдено карточек: {len(project_cards)}")
+        print(f"Projects found: {len(project_cards)}")
         projects_data = load_json_data(JSON_FILE)
 
         for item in project_cards:
             full_url = item['href']
             metro = item['metro']
 
-            print(f"Переход по ссылке: {full_url}")
+            print(f"Going to: {full_url}")
             project_data = parse_project_page(driver, full_url)
 
-            if project_data and project_data["name"] != "Not found":
+            if project_data:
                 project_data["metro"] = metro
                 save_to_json(project_data, projects_data)
                 projects_data = load_json_data(JSON_FILE)
-            else:
-                print("Не удалось спарсить данные")
-
-            driver.get(main_url)
-            WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, '//a[contains(@class, "styles__ProjectCard")]'))
-            )
 
     finally:
         driver.quit()
 
-if __name__ == "__main__":
+def main():
     parse_pik_projects()
+
+if __name__ == "__main__":
+    main()
