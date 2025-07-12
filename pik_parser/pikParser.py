@@ -1,4 +1,4 @@
-import json
+import sys
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict
@@ -11,8 +11,10 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
-PROJECT_DIR = Path(__file__).resolve().parent
-JSON_FILE = PROJECT_DIR / "pik_projects_full.json"
+ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.append(str(ROOT_DIR))
+
+from pik_utils.json_func import load_json_data, save_to_json # pyright: ignore[reportMissingImports]
 
 def get_chrome_options() -> Options:
     options = Options()
@@ -21,23 +23,6 @@ def get_chrome_options() -> Options:
     options.add_argument("--no-sandbox")
     options.add_argument("--enable-unsafe-swiftshader")
     return options
-
-def load_json_data(JSON_FILE: Path) -> List[Dict]:
-    try:
-        with open(JSON_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return []
-
-def save_to_json(data: dict, projects: list) -> None:
-    existing_names = {item['name'] for item in projects}
-    if data['name'] not in existing_names:
-        projects.append(data)
-        with open(JSON_FILE, 'w', encoding='utf-8') as f:
-            json.dump(projects, f, ensure_ascii=False, indent=4)
-        print(f"Saved: {data['name']} | Метро: {data.get('metro', '-')}")
-    else:
-        print(f"Already exists: {data['name']}")
 
 def parse_project_page(driver: webdriver.Chrome, url: str) -> Optional[Dict]:
     driver.get(url)
@@ -87,19 +72,25 @@ def parse_pik_projects() -> None:
 
         project_cards = []
         for card in cards:
-            href = card.get_attribute("href")
-            metro = card.find_element(By.XPATH, './/p[contains(@class, "styles__Metro")]').text.strip()
+            href_opt: Optional[str] = card.get_attribute("href")
+
+            if not href_opt:
+                print(f"No href, skipping...")
+                continue
+
+            href: str = href_opt
+            metro_station = card.find_element(By.XPATH, './/p[contains(@class, "styles__Metro")]').text.strip()
             project_cards.append({
                 "href": href,
-                "metro": metro
+                "metro": metro_station
             })
 
         print(f"Projects found: {len(project_cards)}")
-        projects_data = load_json_data(JSON_FILE)
+        projects_data = load_json_data()
 
         for item in project_cards:
-            full_url = item['href']
-            metro = item['metro']
+            full_url: str = item['href']
+            metro: str = item['metro']
 
             print(f"Going to: {full_url}")
             project_data = parse_project_page(driver, full_url)
