@@ -1,0 +1,22 @@
+import json
+from typing import List, Dict
+from pathlib import Path
+
+JSON_FILE = Path(__file__).parent / "pik_projects_full.json"
+
+def load_json_data() -> List[Dict]:
+    try:
+        with open(JSON_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+def save_to_json(data: dict, projects: list) -> None:
+    existing_names = {item['name'] for item in projects}
+    if data['name'] not in existing_names:
+        projects.append(data)
+        with open(JSON_FILE, 'w', encoding='utf-8') as f:
+            json.dump(projects, f, ensure_ascii=False, indent=4)
+        print(f"Saved: {data['name']} | Метро: {data.get('metro', '-')}")
+    else:
+        print(f"Already exists: {data['name']}")
